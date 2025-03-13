@@ -1,0 +1,19 @@
+# This is a generated file; do not edit or check into version control.
+camera=/Users/amitmac/.pub-cache/hosted/pub.dev/camera-0.11.1/
+camera_android_camerax=/Users/amitmac/.pub-cache/hosted/pub.dev/camera_android_camerax-0.6.14+1/
+camera_avfoundation=/Users/amitmac/.pub-cache/hosted/pub.dev/camera_avfoundation-0.9.18+9/
+camera_web=/Users/amitmac/.pub-cache/hosted/pub.dev/camera_web-0.3.5/
+flutter_plugin_android_lifecycle=/Users/amitmac/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.27/
+flutter_tts=/Users/amitmac/.pub-cache/hosted/pub.dev/flutter_tts-3.8.5/
+google_mlkit_commons=/Users/amitmac/.pub-cache/hosted/pub.dev/google_mlkit_commons-0.6.1/
+google_mlkit_face_detection=/Users/amitmac/.pub-cache/hosted/pub.dev/google_mlkit_face_detection-0.9.0/
+path_provider=/Users/amitmac/.pub-cache/hosted/pub.dev/path_provider-2.1.5/
+path_provider_android=/Users/amitmac/.pub-cache/hosted/pub.dev/path_provider_android-2.2.16/
+path_provider_foundation=/Users/amitmac/.pub-cache/hosted/pub.dev/path_provider_foundation-2.4.1/
+path_provider_linux=/Users/amitmac/.pub-cache/hosted/pub.dev/path_provider_linux-2.2.1/
+path_provider_windows=/Users/amitmac/.pub-cache/hosted/pub.dev/path_provider_windows-2.3.0/
+permission_handler=/Users/amitmac/.pub-cache/hosted/pub.dev/permission_handler-11.4.0/
+permission_handler_android=/Users/amitmac/.pub-cache/hosted/pub.dev/permission_handler_android-12.1.0/
+permission_handler_apple=/Users/amitmac/.pub-cache/hosted/pub.dev/permission_handler_apple-9.4.6/
+permission_handler_html=/Users/amitmac/.pub-cache/hosted/pub.dev/permission_handler_html-0.1.3+5/
+permission_handler_windows=/Users/amitmac/.pub-cache/hosted/pub.dev/permission_handler_windows-0.2.1/
