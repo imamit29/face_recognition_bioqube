@@ -1,16 +1,19 @@
-# face_recognition
+Modular Approach
 
-A new Flutter project.
+TTS service (TtsService), animations (ScanAnimation), and screens (VerifiedScreen) are well-separated, making the code more readable and maintainable.
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
+Efficient Camera Handling
+Permissions are correctly requested, the front camera is initialized, and errors are handled with retries.
+Frames are skipped (frameInterval = 3) to optimize processing.
+Proper disposal of the camera and other resources is ensured.
 
-A few resources to get you started if this is your first Flutter project:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Smooth User Experience
+Step-based UI (_buildStepIndicator, _buildStepLine) keeps users informed about their progress.
+TTS feedback (_ttsService.speak(getInstruction())) enhances usability.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+
+Liveliness Detection is Well-Handled
+Blink detection, smile detection, and head movements (left/right) are correctly implemented.
+The verification countdown and retry mechanism ensure robustness.
