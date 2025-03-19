@@ -3,4 +3,7 @@
   <component name="GithubDefaultAccount">
     <option name="defaultAccountId" value="dee98f4a-519e-4f25-9b89-54d46a04953a" />
   </component>
+  <component name="ProjectType">
+    <option name="id" value="io.flutter" />
+  </component>
 </project>

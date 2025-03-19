@@ -5,7 +5,6 @@ import 'package:face_recognition/services/tts_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -26,14 +25,15 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
     options: FaceDetectorOptions(
       enableLandmarks: true,
       enableClassification: true,
-      enableContours: true,
+      enableContours: false,  // Reduce false positives
+      minFaceSize: 0.3,       // Ignore very small faces
     ),
   );
 
   int step = 0;
   Timer? verificationTimer;
   bool isVerified = false;
-  int timeLeft = 10;
+  int timeLeft = 20;
   bool isProcessing = false;
   int frameSkipCounter = 0;
   double scanPosition = 100;
@@ -75,14 +75,6 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
       _initializeCamera();
     }
   }
-
-  // _initializeTTS(){
-  //   // Configure TTS
-  //   flutterTts.setLanguage("en-US");
-  //   flutterTts.setSpeechRate(0.5);
-  //   flutterTts.setVolume(1.0);
-  //   flutterTts.setPitch(1.0);
-  // }
 
 
   /// Initializes scanning animation.
@@ -136,7 +128,7 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
   /// Starts a countdown timer for verification.
   void _startVerificationTimer() {
     verificationTimer?.cancel();  // Ensure no duplicate timers
-    timeLeft = 10;
+    timeLeft = 20;
 
     verificationTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (timeLeft <= 0) {
@@ -157,7 +149,7 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
     setState(() {
       step = 0;
       isVerified = false;
-      timeLeft = 10;
+      timeLeft = 20;
     });
     _startVerificationTimer();
   }
@@ -183,46 +175,118 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
       );
 
       final faces = await faceDetector.processImage(inputImage);
-      if (faces.isEmpty) return;
 
-      Face face = faces.first;
+      if (faces.isEmpty) {
+        _ttsService.speak("No face detected. Please adjust your position.");
+        return;
+      }
+
+      if (faces.length > 1) {
+        _ttsService.speak("Multiple faces detected. Please ensure only one face is visible.");
+        return;
+      }
+
+      // Find the largest face (ignore false positives)
+      Face? largestFace = faces.reduce((curr, next) =>
+      curr.boundingBox.height * curr.boundingBox.width >
+          next.boundingBox.height * next.boundingBox.width
+          ? curr
+          : next);
+
+      if (largestFace == null) {
+        _ttsService.speak("No face detected. Please adjust your position.");
+        return;
+      }
+
+      Face face = largestFace;
+
+      // Ensure face remains within a valid range before applying checks
+      if (face.boundingBox.height < 30 || face.boundingBox.width < 30) {
+        _ttsService.speak("Face not fully visible. Move slightly up.");
+        return;
+      }
+
+      // Eye openness detection
+      bool eyesOpen = face.leftEyeOpenProbability != null &&
+          face.rightEyeOpenProbability != null &&
+          face.leftEyeOpenProbability! > 0.5 &&
+          face.rightEyeOpenProbability! > 0.5;
+
+      // Blink detection
       bool blinkDetected = face.leftEyeOpenProbability != null &&
           face.rightEyeOpenProbability != null &&
           face.leftEyeOpenProbability! < 0.2 &&
           face.rightEyeOpenProbability! < 0.2;
 
-      bool smileDetected = face.smilingProbability != null &&
-          face.smilingProbability! > 0.5;
+      // Smile detection
+      bool smileDetected = face.smilingProbability != null && face.smilingProbability! > 0.5;
 
-      bool movingLeft = face.headEulerAngleY != null && face.headEulerAngleY! > 10;
-      bool movingRight = face.headEulerAngleY != null && face.headEulerAngleY! < -10;
+      // Yaw (left/right movement) detection
+      bool moveLeft = face.headEulerAngleY != null && face.headEulerAngleY! > 10;
+      bool moveRight = face.headEulerAngleY != null && face.headEulerAngleY! < -10;
 
-      _checkLivelinessSequence(blinkDetected, smileDetected, movingLeft, movingRight);
+      // Pitch (up/down movement) detection
+      bool moveUp = face.headEulerAngleX != null && face.headEulerAngleX! > 10;
+      bool moveDown = face.headEulerAngleX != null && face.headEulerAngleX! < -5; // Reduced threshold
+
+      // Roll (tilt movement) detection
+      bool headTiltDetected = face.headEulerAngleZ != null && face.headEulerAngleZ!.abs() > 10;
+
+      _checkLivelinessSequence(blinkDetected, smileDetected, eyesOpen, moveLeft, moveRight, moveUp, moveDown, headTiltDetected);
     } catch (e) {
       print("❌ Error processing image: $e");
     }
   }
 
   /// Checks if the face actions match the required sequence.
-  void _checkLivelinessSequence(bool blink, bool smile, bool left, bool right) {
+  void _checkLivelinessSequence(bool blink, bool smile, bool eyesOpen, bool left, bool right, bool up, bool down, bool tilt) {
     Map<int, bool> stepActions = {
-      0: blink,
-      1: smile,
-      2: left,
-      3: right,
+      0: eyesOpen,
+      1: blink,
+      2: smile,
+      3: left,
+      4: right,
+      5: up,
+      6: down,
+      7: tilt,
     };
 
     if (stepActions[step] == true) {
       setState(() => step++);
       _ttsService.speak(getInstruction());
 
-      if (step == 4) {
+      if (step == stepActions.length) {
         isVerified = true;
         verificationTimer?.cancel();
         _startCountdownToCapture();
       }
     }
   }
+
+  /// Returns the current instruction based on the step.
+  String getInstruction() {
+    switch (step) {
+      case 0:
+        return "Keep your eyes open";
+      case 1:
+        return "Blink your eyes";
+      case 2:
+        return "Smile";
+      case 3:
+        return "Look left";
+      case 4:
+        return "Look right";
+      case 5:
+        return "Move your head up";
+      case 6:
+        return "Move your head down slightly";
+      case 7:
+        return "Tilt your head to the side";
+      default:
+        return "Verification Complete, Please wait while capturing image";
+    }
+  }
+
 
   void _startCountdownToCapture() {
     timeLeft = 3;
@@ -234,23 +298,6 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
         setState(() => timeLeft--);
       }
     });
-  }
-
-
-  /// Returns the current instruction based on the step.
-  String getInstruction() {
-    switch (step) {
-      case 0:
-        return "blink your eyes";
-      case 1:
-        return "smile";
-      case 2:
-        return "look left";
-      case 3:
-        return "look right";
-      default:
-        return "verification Complete";
-    }
   }
 
 
@@ -278,6 +325,14 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
                         _buildStepIndicator(2, "3"),
                         _buildStepLine(2),
                         _buildStepIndicator(3, "4"),
+                        _buildStepLine(3),
+                        _buildStepIndicator(4, "5"),
+                        _buildStepLine(4),
+                        _buildStepIndicator(5, "6"),
+                        _buildStepLine(5),
+                        _buildStepIndicator(6, "7"),
+                        _buildStepLine(6),
+                        _buildStepIndicator(7, "8"),
                       ],
                     ),),
                   Container(
@@ -379,11 +434,11 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
   Widget _buildStepIndicator(int stepIndex, String label) {
     bool isCompleted = step > stepIndex;
     bool isActive = step == stepIndex;
-    bool isLastStep = stepIndex == 3 && step == 4; // ✅ Step 4 Completion Check
+    bool isLastStep = stepIndex == 7 && step == 8; // ✅ Step 4 Completion Check
 
     return Container(
-      width: 30,
-      height: 30,
+      width: 25,
+      height: 25,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -391,7 +446,7 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
         border: Border.all(color: isCompleted || isLastStep ? Colors.blue : Colors.grey.shade400, width: 2),
       ),
       child: isCompleted || isLastStep
-          ? Icon(Icons.check, color: Colors.white, size: 20) // ✅ Show Checkmark Icon
+          ? Icon(Icons.check, color: Colors.white, size: 10) // ✅ Show Checkmark Icon
           : Text(
         label,
         style: TextStyle(
@@ -405,15 +460,11 @@ class _CameraScreenState extends State<CameraScreen>  with SingleTickerProviderS
   // 📏 Stepper Line (Between Steps)
   Widget _buildStepLine(int stepIndex) {
     return Expanded(
-      child: Padding(padding: EdgeInsets.all(10),
-        child: Card(
-          clipBehavior: Clip.antiAliasWithSaveLayer,
-          child: Container(
-            height: 4,
-            margin: EdgeInsets.all(0),
-            color: step > stepIndex ? Colors.blue : Colors.grey.shade300, // ✅ Change color when completed
-          ),
-        ),),
+      child: Container(
+        margin: EdgeInsets.all(5),
+        height: 4,
+        color: step > stepIndex ? Colors.blue : Colors.grey.shade300, // ✅ Change color when completed
+      ),
     );
   }
 
